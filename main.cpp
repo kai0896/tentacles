@@ -2,7 +2,6 @@
 #include "raymath.h"
 #include <algorithm>
 
-
 struct Player
 {
     Vector2 position;
