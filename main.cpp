@@ -5,11 +5,10 @@
 struct Player
 {
     Vector2 position;
-    Vector2 target;
-    float tarx, tary;
+    Vector2 velocity;
+    float friction;
     float radius;
     float speed;
-    float speedMomentum;
 };
 
 struct Tentacle
@@ -30,14 +29,14 @@ int main(void)
     const int screenWidth = 1000;
     const int screenHeight = 1000;
     SetRandomSeed(3);
+    SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
 
     Player player;
-    Vector2 position = {500, 500};
-    player.position = position;
-    player.target = position;
+    player.position = {500, 500};
     player.radius = 10;
-    player.speed = 100;
-    player.speedMomentum = 0;
+    player.speed = 10;
+    player.velocity = {0, 0};
+    player.friction = 6;
 
     const int NUM_TENTACLES = 3;
     Tentacle tentacles[NUM_TENTACLES] = { 0 };
@@ -47,7 +46,7 @@ int main(void)
       tentacles[i].position = {0, 0};
     }
 
-    const int NUM_OBSTACLES = 40;
+    const int NUM_OBSTACLES = 30;
     Obstacle obstacles[NUM_OBSTACLES] = { 0 };
     for (int i = 0; i < NUM_OBSTACLES; i++) {
         Rectangle rect;
@@ -72,7 +71,6 @@ int main(void)
     }
 
     InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
-    SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
 
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
@@ -90,6 +88,12 @@ int main(void)
                         tentacles[k].position = col;
                     }
                 }
+            }
+        }
+
+        if(IsKeyPressed(KEY_SPACE)){
+            for (int i = 0; i < NUM_TENTACLES; i++) {
+                tentacles[i].attached = false;
             }
         }
 
@@ -123,9 +127,11 @@ int main(void)
 
             // not allow tentacle close to existing one
             for (int i = 0; i < NUM_TENTACLES; i++) {
-                float dist = Vector2Distance(tentacles[i].position, collision);
-                if (dist < 60) {
-                  hit = false;
+                if (tentacles[i].attached){
+                    float dist = Vector2Distance(tentacles[i].position, collision);
+                    if (dist < 40) {
+                        hit = false;
+                    }
                 }
             }
 
@@ -166,10 +172,15 @@ int main(void)
         // apply force of every tentacle
         for (int i = 0; i < NUM_TENTACLES; i++) {
             if (tentacles[i].attached) {
-                float strength = Vector2Distance(player.position, tentacles[i].position);
-                player.position = Vector2MoveTowards(player.position, tentacles[i].position, (player.speed + strength * 0.6) * GetFrameTime());
+                float speed = player.speed * GetFrameTime();
+                Vector2 direction = Vector2Subtract(tentacles[i].position, player.position);
+                player.velocity = Vector2Add(player.velocity, Vector2Multiply(direction, {speed, speed}));
             }
         }
+
+        float friction = 1 - player.friction * GetFrameTime();
+        player.velocity = Vector2Multiply(player.velocity, {friction, friction});
+        player.position = Vector2Add(player.position, Vector2Multiply(player.velocity, {GetFrameTime(), GetFrameTime()}));
 
         BeginDrawing();
         ClearBackground(DARKBROWN);
@@ -191,7 +202,7 @@ int main(void)
         DrawCircle(player.position.x, player.position.y, player.radius, WHITE);
 
         DrawText("click to move", 10, 10, 20, LIGHTGRAY);
-        DrawFPS(10, 80);
+        DrawFPS(10, 40);
 
         EndDrawing();
     }
