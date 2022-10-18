@@ -29,6 +29,7 @@ int main(void)
 {
     const int screenWidth = 1000;
     const int screenHeight = 1000;
+    SetRandomSeed(3);
 
     Player player;
     Vector2 position = {500, 500};
@@ -46,14 +47,23 @@ int main(void)
       tentacles[i].position = {0, 0};
     }
 
-    const int NUM_OBSTACLES = 20;
+    const int NUM_OBSTACLES = 40;
     Obstacle obstacles[NUM_OBSTACLES] = { 0 };
     for (int i = 0; i < NUM_OBSTACLES; i++) {
         Rectangle rect;
         rect.height = 60;
         rect.width = 60;
-        rect.x = GetRandomValue(40, screenWidth - 40);
-        rect.y = GetRandomValue(40, screenHeight - 40);
+        int border = 100;
+        if (GetRandomValue(0, 10) > 3){
+            rect.x = GetRandomValue(0, 1) > 0 ? GetRandomValue(0, border) : GetRandomValue(1000-border-60, 1000-60);
+            // rect.y = GetRandomValue(0, 1) > 0 ? GetRandomValue(0, 200) : GetRandomValue(GetScreenHeight() - 260, GetScreenHeight());
+            rect.y = GetRandomValue(0, screenHeight - 60);
+        } else {
+            rect.x = GetRandomValue(0, screenHeight - 60);
+            rect.y = GetRandomValue(0, screenHeight - 60);
+
+        }
+
         obstacles[i].rect = rect;
         obstacles[i].lines[0] = {rect.x, rect.y, rect.x + rect.width, rect.y}; // top
         obstacles[i].lines[1] = {rect.x, rect.y + rect.height, rect.x + rect.width, rect.y + rect.height}; // bottom
