@@ -1,6 +1,11 @@
 #include "raylib.h"
 #include "raymath.h"
-#include <algorithm>
+
+#if defined(PLATFORM_DESKTOP)
+#define GLSL_VERSION 330
+#else // PLATFORM_RPI, PLATFORM_ANDROID, PLATFORM_WEB
+#define GLSL_VERSION 100
+#endif
 
 struct Player
 {
@@ -14,7 +19,10 @@ struct Player
 struct Tentacle
 {
     Vector2 position;
+    Vector2 positionAnim;
+    float animSpeed;
     bool attached;
+    bool used;
     float radius;
 };
 
@@ -28,22 +36,29 @@ int main(void)
 {
     const int screenWidth = 1000;
     const int screenHeight = 1000;
-    SetRandomSeed(3);
+    SetRandomSeed(69);
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
+    SetConfigFlags(FLAG_MSAA_4X_HINT);      // Enable Multi Sampling Anti Aliasing 4x (if available)
+
+    // Shader shader = LoadShader(0, "resources/shaders/meta.fs");
+    // RenderTexture2D targetTex = LoadRenderTexture(screenWidth, screenHeight);
 
     Player player;
     player.position = {500, 500};
     player.radius = 10;
     player.speed = 10;
     player.velocity = {0, 0};
-    player.friction = 6;
+    player.friction = 5;
 
     const int NUM_TENTACLES = 3;
     Tentacle tentacles[NUM_TENTACLES] = { 0 };
     for (int i = 0; i < NUM_TENTACLES; i++) {
-      tentacles[i].attached = false;
-      tentacles[i].radius = 5;
-      tentacles[i].position = {0, 0};
+        tentacles[i].attached = false;
+        tentacles[i].used = false;
+        tentacles[i].radius = 5;
+        tentacles[i].position = player.position;
+        tentacles[i].positionAnim = player.position;
+        tentacles[i].animSpeed = 4000;
     }
 
     const int NUM_OBSTACLES = 30;
@@ -55,12 +70,10 @@ int main(void)
         int border = 100;
         if (GetRandomValue(0, 10) > 3){
             rect.x = GetRandomValue(0, 1) > 0 ? GetRandomValue(0, border) : GetRandomValue(1000-border-60, 1000-60);
-            // rect.y = GetRandomValue(0, 1) > 0 ? GetRandomValue(0, 200) : GetRandomValue(GetScreenHeight() - 260, GetScreenHeight());
             rect.y = GetRandomValue(0, screenHeight - 60);
         } else {
             rect.x = GetRandomValue(0, screenHeight - 60);
             rect.y = GetRandomValue(0, screenHeight - 60);
-
         }
 
         obstacles[i].rect = rect;
@@ -75,6 +88,7 @@ int main(void)
     // Main game loop
     while (!WindowShouldClose())    // Detect window close button or ESC key
     {
+        // re-position tentacles that go through obstacles
         for (int i = 0; i < NUM_OBSTACLES; i++) {
             for (int j = 0; j < 4; j++) {
                 Vector2 start = {obstacles[i].lines[j].x, obstacles[i].lines[j].y};
@@ -84,19 +98,36 @@ int main(void)
                     Vector2 col;
                     Vector2 tentacleOffset = Vector2MoveTowards(tentacles[k].position, player.position, 10);
                     if (CheckCollisionLines(player.position, tentacleOffset, start, end, &col)) {
-                        // tentacles[k].attached = false;
-                        tentacles[k].position = col;
+                        bool close = false;
+                        for (int l = 0; l < NUM_TENTACLES; l++) {
+                            if (l != k){
+                                if (Vector2Distance(tentacles[k].position, tentacles[l].position) < 60.0f) {
+                                    close = true;
+                                }
+                            }
+                        }
+
+                        if (close) {
+                            tentacles[k].used = false;
+                            tentacles[k].attached = false;
+                        } else {
+                            tentacles[k].position = col;
+                        }
+
                     }
                 }
             }
         }
 
+        // un-attach all tentacles when space is hit
         if(IsKeyPressed(KEY_SPACE)){
             for (int i = 0; i < NUM_TENTACLES; i++) {
                 tentacles[i].attached = false;
+                tentacles[i].used = false;
             }
         }
 
+        // try to tentacle new target based on left mouse
         if(IsMouseButtonPressed(0)){
             Vector2 mousePosition;
             mousePosition.x = GetMouseX();
@@ -117,7 +148,7 @@ int main(void)
                     if(CheckCollisionLines(playerOffset, mouseOffset, start, end, &collisionCurr)){
                         hit = true;
                         float dist = Vector2Distance(playerOffset, collisionCurr);
-                        if (dist < distMin) {
+                        if (dist < distMin && dist) {
                             collision = collisionCurr;
                             distMin = dist;
                         }
@@ -129,7 +160,7 @@ int main(void)
             for (int i = 0; i < NUM_TENTACLES; i++) {
                 if (tentacles[i].attached){
                     float dist = Vector2Distance(tentacles[i].position, collision);
-                    if (dist < 40) {
+                    if (dist < 40.f) {
                         hit = false;
                     }
                 }
@@ -165,7 +196,18 @@ int main(void)
 
                 // set tentacle position
                 tentacles[index].position = collision;
-                tentacles[index].attached = true;
+                tentacles[index].positionAnim = player.position;
+                tentacles[index].attached = false;
+                tentacles[index].used = true;
+            }
+        }
+
+        // move tentacles to position
+        for (int i = 0; i < NUM_TENTACLES; i++) {
+            tentacles[i].positionAnim = Vector2MoveTowards(tentacles[i].positionAnim, tentacles[i].position, tentacles[i].animSpeed * GetFrameTime());
+            if (tentacles[i].used && Vector2Distance(tentacles[i].position, tentacles[i].positionAnim) < 0.1) {
+                tentacles[i].attached = true;
+                tentacles[i].used = true;
             }
         }
 
@@ -182,27 +224,29 @@ int main(void)
         player.velocity = Vector2Multiply(player.velocity, {friction, friction});
         player.position = Vector2Add(player.position, Vector2Multiply(player.velocity, {GetFrameTime(), GetFrameTime()}));
 
+        // Draw
+
         BeginDrawing();
-        ClearBackground(DARKBROWN);
+            ClearBackground(DARKBROWN);
 
-        // draw rectangles
-        for (int i = 0; i < NUM_OBSTACLES; i++) {
-          DrawRectangleRec(obstacles[i].rect, GRAY);
-        }
-
-        // draw tentacles
-        for (int i = 0; i < NUM_TENTACLES; i++) {
-            if(tentacles[i].attached) {
-                DrawCircle(tentacles[i].position.x, tentacles[i].position.y, tentacles[i].radius, RED);
-                DrawLineEx(tentacles[i].position, player.position, 3.0f, RED);
+            // draw rectangles
+            for (int i = 0; i < NUM_OBSTACLES; i++) {
+            DrawRectangleRec(obstacles[i].rect, BROWN);
             }
-        }
 
-        // draw player
-        DrawCircle(player.position.x, player.position.y, player.radius, WHITE);
+            // draw tentacles
+            for (int i = 0; i < NUM_TENTACLES; i++) {
+                if(tentacles[i].used) {
+                    DrawCircle(tentacles[i].positionAnim.x, tentacles[i].positionAnim.y, tentacles[i].radius, RED);
+                    DrawLineEx(tentacles[i].positionAnim, player.position, 3.0f, RED);
+                }
+            }
 
-        DrawText("click to move", 10, 10, 20, LIGHTGRAY);
-        DrawFPS(10, 40);
+            // draw player
+            DrawCircle(player.position.x, player.position.y, player.radius, WHITE);
+
+            DrawText(TextFormat("glslversion: %i", GLSL_VERSION), 10, 10, 20, LIGHTGRAY);
+            DrawFPS(10, 40);
 
         EndDrawing();
     }
