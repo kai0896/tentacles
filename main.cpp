@@ -40,9 +40,6 @@ int main(void)
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     SetConfigFlags(FLAG_MSAA_4X_HINT);      // Enable Multi Sampling Anti Aliasing 4x (if available)
 
-    // Shader shader = LoadShader(0, "resources/shaders/meta.fs");
-    // RenderTexture2D targetTex = LoadRenderTexture(screenWidth, screenHeight);
-
     Player player;
     player.position = {500, 500};
     player.radius = 10;
@@ -98,22 +95,7 @@ int main(void)
                     Vector2 col;
                     Vector2 tentacleOffset = Vector2MoveTowards(tentacles[k].position, player.position, 10);
                     if (CheckCollisionLines(player.position, tentacleOffset, start, end, &col)) {
-                        bool close = false;
-                        for (int l = 0; l < NUM_TENTACLES; l++) {
-                            if (l != k){
-                                if (Vector2Distance(tentacles[k].position, tentacles[l].position) < 60.0f) {
-                                    close = true;
-                                }
-                            }
-                        }
-
-                        if (close) {
-                            tentacles[k].used = false;
-                            tentacles[k].attached = false;
-                        } else {
-                            tentacles[k].position = col;
-                        }
-
+                        tentacles[k].position = col;
                     }
                 }
             }
