@@ -1,16 +1,10 @@
-#include "raylib.h"
-#include "raymath.h"
-
-#if defined(PLATFORM_DESKTOP)
-#define GLSL_VERSION 330
-#else // PLATFORM_RPI, PLATFORM_ANDROID, PLATFORM_WEB
-#define GLSL_VERSION 100
-#endif
+#include <raylib-cpp.hpp>
 
 struct Player
 {
-    Vector2 position;
-    Vector2 velocity;
+    raylib::Vector2 position;
+    raylib::Vector2 positionDelay;
+    raylib::Vector2 velocity;
     float friction;
     float radius;
     float speed;
@@ -18,17 +12,18 @@ struct Player
 
 struct Tentacle
 {
-    Vector2 position;
-    Vector2 positionAnim;
+    raylib::Vector2 position;
+    raylib::Vector2 positionAnim;
     float animSpeed;
     bool attached;
     bool used;
     float radius;
+    float thick;
 };
 
 struct Obstacle
 {
-    Rectangle rect;
+    raylib::Rectangle rect;
     Vector4 lines[4];
 };
 
@@ -36,42 +31,48 @@ int main(void)
 {
     const int screenWidth = 1000;
     const int screenHeight = 1000;
-    SetRandomSeed(69);
+    SetRandomSeed(420);
     SetTargetFPS(60);               // Set our game to run at 60 frames-per-second
     SetConfigFlags(FLAG_MSAA_4X_HINT);      // Enable Multi Sampling Anti Aliasing 4x (if available)
 
+    // init player
     Player player;
-    player.position = {500, 500};
-    player.radius = 10;
+    player.position = raylib::Vector2(500, 500);
+    player.positionDelay = raylib::Vector2(500, 500);
+    player.radius = 18;
     player.speed = 10;
-    player.velocity = {0, 0};
+    player.velocity = raylib::Vector2(0, 0);
     player.friction = 5;
 
+    // init tentacles
     const int NUM_TENTACLES = 3;
     Tentacle tentacles[NUM_TENTACLES] = { 0 };
     for (int i = 0; i < NUM_TENTACLES; i++) {
         tentacles[i].attached = false;
         tentacles[i].used = false;
-        tentacles[i].radius = 5;
+        tentacles[i].radius = 8;
+        tentacles[i].thick = 10;
         tentacles[i].position = player.position;
         tentacles[i].positionAnim = player.position;
         tentacles[i].animSpeed = 4000;
     }
 
+    // init obstacles
     const int NUM_OBSTACLES = 30;
     Obstacle obstacles[NUM_OBSTACLES] = { 0 };
     for (int i = 0; i < NUM_OBSTACLES; i++) {
-        Rectangle rect;
-        rect.height = 60;
-        rect.width = 60;
         int border = 100;
+        float rectx;
+        float recty;
         if (GetRandomValue(0, 10) > 3){
-            rect.x = GetRandomValue(0, 1) > 0 ? GetRandomValue(0, border) : GetRandomValue(1000-border-60, 1000-60);
-            rect.y = GetRandomValue(0, screenHeight - 60);
+            rectx = GetRandomValue(0, 1) > 0 ? GetRandomValue(0, border) : GetRandomValue(1000-border-60, 1000-60);
+            recty = GetRandomValue(0, screenHeight - 60);
         } else {
-            rect.x = GetRandomValue(0, screenHeight - 60);
-            rect.y = GetRandomValue(0, screenHeight - 60);
+            rectx = GetRandomValue(0, screenHeight - 60);
+            recty = GetRandomValue(0, screenHeight - 60);
         }
+
+        raylib::Rectangle rect(rectx, recty, 60, 60);
 
         obstacles[i].rect = rect;
         obstacles[i].lines[0] = {rect.x, rect.y, rect.x + rect.width, rect.y}; // top
@@ -80,21 +81,27 @@ int main(void)
         obstacles[i].lines[3] = {rect.x + rect.width, rect.y, rect.x + rect.width, rect.y + rect.height}; // right
     }
 
-    InitWindow(screenWidth, screenHeight, "raylib [core] example - basic window");
+    raylib::Window window(screenWidth, screenHeight, "raylib [core] example - basic window");
+
+    // prepare postprocessing shader and texture
+    raylib::Shader shader(0, "src/meta.fs");
+    RenderTexture2D targetTex = LoadRenderTexture(screenWidth, screenHeight);
+
 
     // Main game loop
-    while (!WindowShouldClose())    // Detect window close button or ESC key
+    while (!window.ShouldClose())    // Detect window close button or ESC key
     {
         // re-position tentacles that go through obstacles
         for (int i = 0; i < NUM_OBSTACLES; i++) {
             for (int j = 0; j < 4; j++) {
-                Vector2 start = {obstacles[i].lines[j].x, obstacles[i].lines[j].y};
-                Vector2 end = {obstacles[i].lines[j].z, obstacles[i].lines[j].w};
+                raylib::Vector2 start(obstacles[i].lines[j].x, obstacles[i].lines[j].y);
+                raylib::Vector2 end(obstacles[i].lines[j].z, obstacles[i].lines[j].w);
 
                 for (int k = 0; k < NUM_TENTACLES; k++) {
-                    Vector2 col;
-                    Vector2 tentacleOffset = Vector2MoveTowards(tentacles[k].position, player.position, 10);
-                    if (CheckCollisionLines(player.position, tentacleOffset, start, end, &col)) {
+                    raylib::Vector2 tentacleOffset = tentacles[k].position.MoveTowards(player.position, 10);
+                    raylib::Vector2 playerOffset = player.position.MoveTowards(tentacles[k].position, 2);
+                    raylib::Vector2 col;
+                    if (CheckCollisionLines(playerOffset, tentacleOffset, start, end, &col)) {
                         tentacles[k].position = col;
                     }
                 }
@@ -111,16 +118,14 @@ int main(void)
 
         // try to tentacle new target based on left mouse
         if(IsMouseButtonPressed(0)){
-            Vector2 mousePosition;
-            mousePosition.x = GetMouseX();
-            mousePosition.y = GetMouseY();
+            raylib::Vector2 mousePosition = GetMousePosition();
 
-            Vector2 dir = Vector2Normalize(Vector2Subtract(mousePosition, player.position));
-            Vector2 playerOffset = Vector2Add(player.position, Vector2Multiply(dir, {5, 5}));
-            Vector2 mouseOffset = Vector2Add(mousePosition, Vector2Multiply(dir, {1000, 1000}));
+            raylib::Vector2 dir = (mousePosition - player.position).Normalize();
+            raylib::Vector2 playerOffset = player.position + dir * raylib::Vector2(5, 5);
+            raylib::Vector2 mouseOffset = mousePosition + dir * raylib::Vector2(screenWidth, screenHeight);
 
-            Vector2 collision;
-            Vector2 collisionCurr;
+            raylib::Vector2 collision;
+            raylib::Vector2 collisionCurr;
             float distMin = GetScreenWidth()+GetScreenHeight();
             bool hit = false;
             for (int i = 0; i < NUM_OBSTACLES; i++) {
@@ -193,20 +198,48 @@ int main(void)
             }
         }
 
-        // apply force of every tentacle
+        // apply force of every tentacle to player velocity
         for (int i = 0; i < NUM_TENTACLES; i++) {
             if (tentacles[i].attached) {
                 float speed = player.speed * GetFrameTime();
-                Vector2 direction = Vector2Subtract(tentacles[i].position, player.position);
-                player.velocity = Vector2Add(player.velocity, Vector2Multiply(direction, {speed, speed}));
+                raylib::Vector2 direction = tentacles[i].position - player.position;
+                player.velocity += direction * raylib::Vector2(speed, speed);
             }
         }
 
+        // update player velocity and position
         float friction = 1 - player.friction * GetFrameTime();
-        player.velocity = Vector2Multiply(player.velocity, {friction, friction});
-        player.position = Vector2Add(player.position, Vector2Multiply(player.velocity, {GetFrameTime(), GetFrameTime()}));
+        player.velocity *= raylib::Vector2(friction, friction);
+        player.position += player.velocity * raylib::Vector2(GetFrameTime(), GetFrameTime());
+
+        // make positionDelay body follow slightly behing player
+        float delay = (player.velocity.Length() * 0.8 + 40) * GetFrameTime();
+        player.positionDelay = player.positionDelay.MoveTowards(player.position, delay);
+        raylib::Vector2 diff = player.positionDelay - player.position;
+        float maxDist = 7;
+        if (diff.Length() > maxDist) {
+            float mult = maxDist / diff.Length();
+            player.positionDelay -= diff;
+            player.positionDelay += diff * mult;
+        }
 
         // Draw
+
+        BeginTextureMode(targetTex);
+            ClearBackground(WHITE);
+
+            // draw tentacles
+            for (int i = 0; i < NUM_TENTACLES; i++) {
+                if(tentacles[i].used) {
+                    DrawCircle(tentacles[i].positionAnim.x, tentacles[i].positionAnim.y, tentacles[i].radius, BLACK);
+                    DrawLineEx(tentacles[i].positionAnim, player.position, tentacles[i].thick, BLACK);
+                }
+            }
+
+            // draw player
+            player.position.DrawCircle(player.radius, BLACK);
+            player.positionDelay.DrawCircle(player.radius*0.9, BLACK);
+        EndTextureMode();
 
         BeginDrawing();
             ClearBackground(DARKBROWN);
@@ -216,18 +249,10 @@ int main(void)
             DrawRectangleRec(obstacles[i].rect, BROWN);
             }
 
-            // draw tentacles
-            for (int i = 0; i < NUM_TENTACLES; i++) {
-                if(tentacles[i].used) {
-                    DrawCircle(tentacles[i].positionAnim.x, tentacles[i].positionAnim.y, tentacles[i].radius, RED);
-                    DrawLineEx(tentacles[i].positionAnim, player.position, 3.0f, RED);
-                }
-            }
+            BeginShaderMode(shader);
+                DrawTextureRec(targetTex.texture, (Rectangle){ 0, 0, (float)targetTex.texture.width, (float)-targetTex.texture.height }, (Vector2){ 0, 0 }, WHITE);
+            EndShaderMode();
 
-            // draw player
-            DrawCircle(player.position.x, player.position.y, player.radius, WHITE);
-
-            DrawText(TextFormat("glslversion: %i", GLSL_VERSION), 10, 10, 20, LIGHTGRAY);
             DrawFPS(10, 40);
 
         EndDrawing();

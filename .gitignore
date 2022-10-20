@@ -4,6 +4,8 @@
 tmp/
 include/*
 lib/*
+build/
+bin/*
 
 # Prerequisites
 *.d
