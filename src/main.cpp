@@ -40,9 +40,9 @@ int main(void)
     player.position = raylib::Vector2(500, 500);
     player.positionDelay = raylib::Vector2(500, 500);
     player.radius = 18;
-    player.speed = 10;
+    player.speed = 6;
     player.velocity = raylib::Vector2(0, 0);
-    player.friction = 5;
+    player.friction = 4;
 
     // init tentacles
     const int NUM_TENTACLES = 3;
@@ -54,7 +54,7 @@ int main(void)
         tentacles[i].thick = 10;
         tentacles[i].position = player.position;
         tentacles[i].positionAnim = player.position;
-        tentacles[i].animSpeed = 4000;
+        tentacles[i].animSpeed = 3000;
     }
 
     // init obstacles
@@ -216,7 +216,7 @@ int main(void)
         float delay = (player.velocity.Length() * 0.8 + 40) * GetFrameTime();
         player.positionDelay = player.positionDelay.MoveTowards(player.position, delay);
         raylib::Vector2 diff = player.positionDelay - player.position;
-        float maxDist = 7;
+        float maxDist = 6;
         if (diff.Length() > maxDist) {
             float mult = maxDist / diff.Length();
             player.positionDelay -= diff;
