@@ -1,6 +1,5 @@
-#include <raylib-cpp.hpp>
+#include "../include/raylib-cpp.hpp"
 #include "player.h"
-#include "tentacle.h"
 #include "obstacle.h"
 
 int main(void)
@@ -17,28 +16,19 @@ int main(void)
     raylib::Shader shader(0, "src/meta.fs");
     RenderTexture2D targetTex = LoadRenderTexture(screenWidth, screenHeight);
 
+    PlayerLook playerLook = {18, // radius
+                        10, // radius tentacle
+                        8}; // thickness tentacle
+
     // init player
-    Player player;
-    player.position = raylib::Vector2(500, 500);
-    player.positionDelay = raylib::Vector2(500, 500);
-    player.velocity = raylib::Vector2(0, 0);
-    player.friction = 4;
-    player.radius = 18;
-    player.speed = 6;
-
-    // init tentacles
-    std::vector<Tentacle> tents(3);
-    for (int i = 0; i < tents.size(); i++) {
-        tents[i].attached = false;
-        tents[i].used = false;
-        tents[i].position = player.position;
-        tents[i].positionAnim = player.position;
-    }
-
-    player.tentacles = tents;
-    player.tentacleSpeed = 3000;
-    player.tentacleRadius = 10;
-    player.tentacleThickness = 8;
+    raylib::Vector2 defaultPos(500, 500);
+    Player player(defaultPos, // position
+                  defaultPos, // position of delay thing
+                  raylib::Vector2(0, 0), // velocity
+                  4, // friction
+                  6, // speed
+                  3000, // speed tentacles
+                  playerLook);
 
     // init obstacles
     std::vector<Obstacle> obstacles(30);
@@ -63,17 +53,14 @@ int main(void)
     while (!window.ShouldClose())    // Detect window close button or ESC key
     {
 
-        // // un-attach all tentacles when space is hit
-        // if(IsKeyPressed(KEY_SPACE)){
-        //     for (int i = 0; i < NUM_TENTACLES; i++) {
-        //         tentacles[i].attached = false;
-        //         tentacles[i].used = false;
-        //     }
-        // }
+        // un-attach all tentacles when space is hit
+        if(IsKeyPressed(KEY_SPACE)){
+            player.RetractTentacles();
+        }
 
         // try to tentacle new target based on left mouse
         if(IsMouseButtonPressed(0)){
-            player.UpdateTentacle(obstacles);
+            player.MoveTentacle(obstacles);
         }
 
         player.Update(obstacles);
