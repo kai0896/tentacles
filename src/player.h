@@ -29,6 +29,8 @@ class Player
     float m_tentacleSpeed;
     PlayerLook m_look;
 
+    void UpdateState(int tentId, Tentacle::State resState, const Vector2& target);
+
 public:
   Player(raylib::Vector2 position,
         raylib::Vector2 positionDelay,
@@ -38,11 +40,10 @@ public:
         float tentacleSpeed,
         PlayerLook look);
 
-
-  void MoveTentacle(const std::vector<Obstacle> &obstacles);
+  void MoveTentacle(const std::vector<Obstacle> &obstacles, const raylib::Camera2D &camera);
 
   void RetractTentacles();
-  void Update(const std::vector<Obstacle> &obstacles);
+  void Update(const std::vector<Obstacle> &obstacles, raylib::Camera2D &camera);
 
   void Draw();
 };

@@ -26,8 +26,8 @@ void Player::RetractTentacles(){
     }
 }
 
-void Player::MoveTentacle(const std::vector<Obstacle> &obstacles) {
-    raylib::Vector2 mousePosition = GetMousePosition();
+void Player::MoveTentacle(const std::vector<Obstacle> &obstacles, const raylib::Camera2D &camera) {
+    raylib::Vector2 mousePosition = raylib::Mouse::GetPosition() - camera.GetOffset();
 
     raylib::Vector2 dir = (mousePosition - m_position).Normalize();
     raylib::Vector2 playerOffset = m_position + dir * raylib::Vector2(5, 5);
@@ -100,41 +100,37 @@ void Player::MoveTentacle(const std::vector<Obstacle> &obstacles) {
     }
 }
 
-void Player::Update(const std::vector<Obstacle> &obstacles) {
+void Player::UpdateState(int tentId, Tentacle::State resState, const Vector2& target){
+    m_tentacles[tentId].positionAnim = Vector2MoveTowards(m_tentacles[tentId].positionAnim,
+                                                          target,
+                                                          m_tentacleSpeed * GetFrameTime());
+    if( Vector2Distance(m_tentacles[tentId].positionAnim, target) < 0.1) {
+        m_tentacles[tentId].state = resState;
+    }
+}
+
+void Player::Update(const std::vector<Obstacle> &obstacles, raylib::Camera2D &camera) {
 
     // move tentacles to position
     for (int i = 0; i < m_tentacles.size(); i++) {
-        if (m_tentacles[i].state == Tentacle::toPlayer){
-            m_tentacles[i].positionAnim = Vector2MoveTowards(m_tentacles[i].positionAnim,
-                                                             m_position,
-                                                             m_tentacleSpeed * GetFrameTime());
-            if( Vector2Distance(m_tentacles[i].positionAnim, m_position) < 0.1) {
-                m_tentacles[i].state = Tentacle::toPlace;
-            }
-        } else if (m_tentacles[i].state == Tentacle::toPlace) {
-          m_tentacles[i].positionAnim = Vector2MoveTowards(m_tentacles[i].positionAnim,
-                                                           m_tentacles[i].position,
-                                                           m_tentacleSpeed * GetFrameTime());
-          if (Vector2Distance(m_tentacles[i].position, m_tentacles[i].positionAnim) < 0.1) {
-            m_tentacles[i].state = Tentacle::placed;
-          }
-        } else if (m_tentacles[i].state == Tentacle::toRetract) {
-          m_tentacles[i].positionAnim = Vector2MoveTowards(m_tentacles[i].positionAnim,
-                                                           m_position,
-                                                           m_tentacleSpeed * GetFrameTime());
-          if (Vector2Distance(m_tentacles[i].positionAnim, m_position) < 0.1) {
-            m_tentacles[i].state = Tentacle::retracted;
-          }
+        switch (m_tentacles[i].state) {
+            case Tentacle::toPlayer:
+                UpdateState(i, Tentacle::toPlace, m_position);
+                break;
+            case Tentacle::toPlace:
+                UpdateState(i, Tentacle::placed, m_tentacles[i].position);
+                break;
+            case Tentacle::toRetract:
+                UpdateState(i, Tentacle::retracted, m_position);
+                break;
         }
     }
 
         // re-position tentacles that go through obstacles
     for (int i = 0; i < obstacles.size(); i++) {
         for (int j = 0; j < 4; j++) {
-        raylib::Vector2 start(obstacles[i].lines[j].x,
-                                obstacles[i].lines[j].y);
-        raylib::Vector2 end(obstacles[i].lines[j].z,
-                            obstacles[i].lines[j].w);
+        raylib::Vector2 start(obstacles[i].lines[j].x, obstacles[i].lines[j].y);
+        raylib::Vector2 end(obstacles[i].lines[j].z, obstacles[i].lines[j].w);
 
         for (int k = 0; k < m_tentacles.size(); k++) {
             if (m_tentacles[k].state != Tentacle::retracted){
@@ -164,6 +160,9 @@ void Player::Update(const std::vector<Obstacle> &obstacles) {
     m_velocity *= raylib::Vector2(frictionN, frictionN);
     m_position += m_velocity * raylib::Vector2(GetFrameTime(), GetFrameTime());
 
+    // move camera with player:
+    // camera.offset = raylib::Vector2(500, 500) - m_position;
+
     // make positionDelay body follow slightly behing player
     float delay = (m_velocity.Length() * 0.8 + 40) * GetFrameTime();
     m_positionDelay = m_positionDelay.MoveTowards(m_position, delay);
@@ -180,8 +179,14 @@ void Player::Draw() {
     // draw tentacles
     for (int i = 0; i < m_tentacles.size(); i++) {
         if(m_tentacles[i].state != Tentacle::retracted) {
-            DrawCircle(m_tentacles[i].positionAnim.x, m_tentacles[i].positionAnim.y, m_look.tentacleRadius, BLACK);
-            DrawLineEx(m_tentacles[i].positionAnim, m_position, m_look.tentacleThickness, BLACK);
+            DrawCircle(m_tentacles[i].positionAnim.x,
+                       m_tentacles[i].positionAnim.y,
+                       m_look.tentacleRadius,
+                       BLACK);
+            DrawLineEx(m_tentacles[i].positionAnim,
+                       m_position,
+                       m_look.tentacleThickness,
+                       BLACK);
         }
     }
 

@@ -16,11 +16,14 @@ int main(void)
     raylib::Shader shader(0, "src/meta.fs");
     RenderTexture2D targetTex = LoadRenderTexture(screenWidth, screenHeight);
 
+    // camera
+    raylib::Camera2D camera(raylib::Vector2(0, 0), raylib::Vector2(0, 0));
+
+    // init player
     PlayerLook playerLook = {18, // radius
                         10, // radius tentacle
                         8}; // thickness tentacle
 
-    // init player
     raylib::Vector2 defaultPos(500, 500);
     Player player(defaultPos, // position
                   defaultPos, // position of delay thing
@@ -60,13 +63,15 @@ int main(void)
 
         // try to tentacle new target based on left mouse
         if(IsMouseButtonPressed(0)){
-            player.MoveTentacle(obstacles);
+            player.MoveTentacle(obstacles, camera);
         }
 
-        player.Update(obstacles);
+        // Update player and tentacle state
+        player.Update(obstacles, camera);
 
         // Draw
 
+        // draw player into renderung texture
         BeginTextureMode(targetTex);
             ClearBackground(WHITE);
             player.Draw();
@@ -74,6 +79,8 @@ int main(void)
         EndTextureMode();
 
         BeginDrawing();
+
+        camera.BeginMode();
             ClearBackground(DARKBROWN);
 
             // draw rectangles
@@ -81,16 +88,19 @@ int main(void)
                 DrawRectangleRec(obstacles[i].rect, BROWN);
             }
 
+            // apply metaball shader to player
             BeginShaderMode(shader);
                 DrawTextureRec(targetTex.texture, (Rectangle){ 0, 0, (float)targetTex.texture.width, (float)-targetTex.texture.height }, (Vector2){ 0, 0 }, WHITE);
             EndShaderMode();
 
             DrawFPS(10, 40);
+        camera.EndMode();
 
         EndDrawing();
+
+
     }
 
     CloseWindow();        // Close window and OpenGL context
-
     return 0;
 }
