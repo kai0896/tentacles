@@ -15,7 +15,7 @@ const float Pi = 6.28318530718; // Pi*2
 const float Directions = 16.0; // BLUR DIRECTIONS (Default 16.0 - More is better but slower)
 const float Quality = 4.0; // BLUR QUALITY (Default 4.0 - More is better but slower)
 const float Size = 8.0; // BLUR SIZE (Radius)
-const vec4 Col = vec4(0.0, 0.0, 0.1, 1.0);
+const vec4 Col = vec4(0.0, 0.1, 0.1, 1.0);
 // GAUSSIAN BLUR SETTINGS }}}
 
 //---------------------------------------------------------------------------

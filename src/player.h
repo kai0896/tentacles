@@ -1,6 +1,7 @@
 #pragma once
-#include "obstacle.h"
+#include "cave.h"
 #include "../include/raylib-cpp.hpp"
+#include <memory>
 
 
 struct Tentacle {
@@ -30,6 +31,7 @@ class Player
     PlayerLook m_look;
 
     void UpdateState(int tentId, Tentacle::State resState, const Vector2& target);
+    std::unique_ptr<raylib::Vector2> Line(raylib::Vector2 start, raylib::Vector2 end, const Cave &cave);
 
 public:
   Player(raylib::Vector2 position,
@@ -40,10 +42,10 @@ public:
         float tentacleSpeed,
         PlayerLook look);
 
-  void MoveTentacle(const std::vector<Obstacle> &obstacles, const raylib::Camera2D &camera);
+  void MoveTentacle(int dirId, const raylib::Vector2 &dir, Cave &cave, const raylib::Camera2D &camera);
 
-  void RetractTentacles();
-  void Update(const std::vector<Obstacle> &obstacles, raylib::Camera2D &camera);
+  void RetractTentacle(int dirId);
+  void Update(Cave &cave, raylib::Camera2D &camera);
 
   void Draw();
 };
