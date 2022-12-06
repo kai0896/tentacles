@@ -30,12 +30,12 @@ int main(void)
                   raylib::Vector2(0, 0), // velocity
                   4, // friction
                   6, // speed
-                  3000, // speed tentacles
+                  2000, // speed tentacles
                   playerLook);
 
     // init obstacles
     std::vector<Obstacle> obstacles(30);
-    for (int i = 0; i < obstacles.size(); i++) {
+    for (auto &obs : obstacles) {
         int border = 100;
         float rectx;
         float recty;
@@ -48,7 +48,7 @@ int main(void)
         }
         raylib::Rectangle rect(rectx, recty, 60, 60);
 
-        obstacles[i].Set(rect);
+        obs.Set(rect);
     }
 
     // Main game loop
@@ -63,7 +63,8 @@ int main(void)
 
         // try to tentacle new target based on left mouse
         if(IsMouseButtonPressed(0)){
-            player.MoveTentacle(obstacles, camera);
+            raylib::Vector2 mousePosition = raylib::Mouse::GetPosition() - camera.GetOffset();
+            player.MoveTentacle(obstacles, mousePosition);
         }
 
         // Update player and tentacle state
@@ -84,8 +85,8 @@ int main(void)
             ClearBackground(DARKBROWN);
 
             // draw rectangles
-            for (int i = 0; i < obstacles.size(); i++) {
-                DrawRectangleRec(obstacles[i].rect, BROWN);
+            for (auto obs : obstacles) {
+                DrawRectangleRec(obs.rect, BROWN);
             }
 
             // apply metaball shader to player

@@ -40,7 +40,7 @@ public:
         float tentacleSpeed,
         PlayerLook look);
 
-  void MoveTentacle(const std::vector<Obstacle> &obstacles, const raylib::Camera2D &camera);
+  void MoveTentacle(const std::vector<Obstacle> &obstacles, const raylib::Vector2 &mousePosition);
 
   void RetractTentacles();
   void Update(const std::vector<Obstacle> &obstacles, raylib::Camera2D &camera);
